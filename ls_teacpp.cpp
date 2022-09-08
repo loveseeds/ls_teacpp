@@ -4,13 +4,8 @@
 
 namespace ls
 {
-/**
- * @brief 加密函数
- * 
- * @param v 
- * @param k 
- * @return * void 
- */
+
+// Encrypt two numbers at a time
 void base_encrypt (uint32_t* v, uint32_t* k) {  
     uint32_t v0=v[0], v1=v[1], sum=0, i;           /* set up */  
     uint32_t delta=0x9e3779b9;                     /* a key schedule constant */  
@@ -23,13 +18,7 @@ void base_encrypt (uint32_t* v, uint32_t* k) {
     v[0]=v0; v[1]=v1;  
 }
 
-/**
- * @brief 解密函数
- * 
- * @param v 
- * @param k 
- * @return * void 
- */
+// Decrypt two numbers at a time
 void base_decrypt (uint32_t* v, uint32_t* k) {  
     uint32_t v0=v[0], v1=v[1], sum=0xC6EF3720, i;  /* set up */  
     uint32_t delta=0x9e3779b9;                     /* a key schedule constant */  
@@ -42,36 +31,38 @@ void base_decrypt (uint32_t* v, uint32_t* k) {
     v[0]=v0; v[1]=v1;  
 }
 
-bool _tea_encrypt_decrypt(const void* in_buffer, const uint32_t in_length, const char* key, void* out_buffer, uint32_t* out_length, void(*_tea_method)(uint32_t* v, uint32_t* k))
+// Encrypt/Decrypt length is 16 bytes
+#define TEA_KEY_LENGTH  (16)
+
+bool _tea_encrypt_decrypt(const void* in_buffer, const uint32_t in_length, const char* key, void* out_buffer, uint32_t* out_length, void(*_tea_algo_handle)(uint32_t* v, uint32_t* k))
 {
     if(in_buffer == NULL || out_buffer == NULL || key == NULL || \
-       out_length == NULL || _tea_method == NULL)
+       out_length == NULL || _tea_algo_handle == NULL)
     {
         return false;
     }
 
-    if(strlen(key)!=16)
+    if(strlen(key) != TEA_KEY_LENGTH)
     {
         return false;
     }
 
     uint32_t tea_length = (in_length%8) ? (in_length/8+1)<<3 : in_length;   // resize input data len
-    uint32_t loop = tea_length/8, i=0;
     uint32_t op_data[2]={0}, op_key[4]={0};
 
-    char* p_in_buffer = (char*)out_buffer;
+    char* p_in_buffer = (char*)out_buffer;              // use same buffer, to save memory
     char* p_out_buffer = (char*)out_buffer;
 
     memset(p_out_buffer, 0, tea_length);                // file zero
     memcpy(p_in_buffer, in_buffer, in_length);          // copy input data
 
-    memcpy(op_key, key, strlen(key));                   // copy input key
+    memcpy(op_key, key, strlen(key));                   // copy key
 
-    for(i=0; i<loop; i++)
+    for(uint32_t i=0; i<tea_length/8; i++)
     {
         memcpy(op_data, &p_in_buffer[i*8], 8);     
-        _tea_method(op_data, op_key);               // encrypt or ecrypt
-        memcpy(&p_out_buffer[i*8], op_data, 8);     // out encrypt or ecrypt result
+        _tea_algo_handle(op_data, op_key);              // encrypt or decrypt
+        memcpy(&p_out_buffer[i*8], op_data, 8);         // out encrypt or ecrypt result
     }
 
     *out_length = tea_length;
